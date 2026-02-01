@@ -1,4 +1,4 @@
 {
-  "repository": "",
-  "repositoryDescription": ""
+  "repository": "code-review-severity",
+  "repositoryDescription": "Score the severity of code review comments from minor stylistic issues to critical security vulnerabilities."
 }
