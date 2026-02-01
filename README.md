@@ -1,73 +1,97 @@
-# ObjectiveAI Function Sandbox
+# code-review-severity
 
-A sandbox environment for creating ObjectiveAI Functions and Profiles.
+Score the severity of code review comments from minor stylistic issues to critical security vulnerabilities.
 
-[GitHub](https://github.com/ObjectiveAI/objectiveai) | [Website](https://objective-ai.io) | [Discord](https://discord.gg/gbNFHensby)
+[ObjectiveAI](https://objective-ai.io) | [Discord](https://discord.gg/gbNFHensby)
 
-## What is this?
+## Overview
 
-This repository is a template workspace for inventing new ObjectiveAI **Functions** (scoring/ranking pipelines) and **Profiles** (learned weights).
+This is a **scalar function** that takes a code review comment and outputs a severity score from 0 to 1:
 
-It includes a **Claude Code skill** (`~/.claude/skills/invent/SKILL.md`) that guides Claude through the entire process of inventing a new Function from scratch - from studying examples to validating the new Function/Profile pair to publishing on GitHub.
+| Score | Severity | Examples |
+|-------|----------|----------|
+| 1.0 | Critical | Security vulnerabilities, crashes, data loss, major bugs |
+| 0.75 | Major | Logic errors, performance issues, breaking changes |
+| 0.5 | Moderate | Best practice violations, maintainability concerns |
+| 0.25 | Minor | Naming conventions, documentation issues |
+| 0.0 | Trivial | Whitespace, formatting |
 
-The sandbox provides all the tooling needed to:
+## Usage
 
-- Define a Function and Profile in TypeScript
-- Validate against the ObjectiveAI schema
-- Test with example inputs
-- Export to `function.json` and `profile.json`
-- Publish to GitHub and the ObjectiveAI index
+```typescript
+import ObjectiveAI from "objectiveai";
 
-## Quick Start
+const client = new ObjectiveAI();
 
-```bash
-npm install
-npm run init      # Fetch example functions/profiles
-npm run build     # Validate, test, and export
-npm run publish   # (Optional) Index on ObjectiveAI
+const result = await client.functions.executions.create({
+  owner: "ObjectiveAI-claude-code-1",
+  repository: "code-review-severity",
+  input: {
+    comment: "This SQL query is vulnerable to injection attacks",
+    code: 'const query = "SELECT * FROM users WHERE id = " + userId;',
+  },
+});
+
+console.log(result.output); // ~0.95 (Critical severity)
 ```
 
-## Project Structure
+## Input Schema
 
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `comment` | string | Yes | The code review comment or feedback to evaluate |
+| `code` | string | No | The code snippet being reviewed |
+| `context` | string | No | Additional context about the codebase or review |
+
+## Examples
+
+```typescript
+// Critical - SQL injection
+{
+  comment: "User input is directly concatenated into the query string",
+  code: 'const query = "SELECT * FROM users WHERE id = " + userId;'
+}
+// Expected score: ~1.0
+
+// Major - Infinite loop
+{
+  comment: "This will cause an infinite loop when the array is empty"
+}
+// Expected score: ~0.75
+
+// Moderate - Code organization
+{
+  comment: "Consider extracting this into a shared utility function"
+}
+// Expected score: ~0.5
+
+// Minor - Naming
+{
+  comment: "Variable name 'x' is not descriptive",
+  code: "const x = users.length;"
+}
+// Expected score: ~0.25
+
+// Trivial - Formatting
+{
+  comment: "Trailing comma missing on the last item"
+}
+// Expected score: ~0.0
 ```
-├── defs.ts           # Define your Function, Profile, and ExampleInputs here
-├── main.ts           # Scratchpad for experiments (npm run start)
-├── build.ts          # Exports Function/Profile to JSON (readonly)
-├── test.ts           # Validates and tests everything (readonly)
-├── init.ts           # Fetches example functions/profiles (readonly)
-├── publish.ts        # Publishes to ObjectiveAI index (readonly)
-├── exampleInput.ts  # ExampleInput type definition (readonly)
-├── function.json     # Generated Function output
-├── profile.json      # Generated Profile output
-├── examples/         # Downloaded example functions/profiles
-└── objectiveai/      # ObjectiveAI SDK (git submodule)
-```
 
-## Workflow
+## Profile
 
-1. **Study examples** - Run `npm run init` to download example functions/profiles, then explore `examples/`
-2. **Define your Function** - Edit `defs.ts` to create your Function with tasks and output expressions
-3. **Define your Profile** - Add a Profile that specifies ensembles and weights for each task
-4. **Create ExampleInputs** - Add 10 diverse test inputs covering edge cases
-5. **Build and test** - Run `npm run build` to validate and export
-6. **Publish** - Push to GitHub, optionally run `npm run publish` to index
+The default profile uses an ensemble of 5 LLMs with equal weighting:
 
-## Scripts
+- `openai/gpt-4.1-nano`
+- `google/gemini-2.5-flash-lite`
+- `x-ai/grok-4.1-fast`
+- `openai/gpt-4o-mini` (with logprobs)
+- `deepseek/deepseek-v3.2` (with logprobs)
 
-| Command | Description |
-|---------|-------------|
-| `npm run start` | Run the scratchpad (`main.ts`) for experiments |
-| `npm run init` | Fetch example functions/profiles into `examples/` |
-| `npm run build` | Validate, test, and export to JSON |
-| `npm run test` | Run validation tests only |
-| `npm run publish` | Publish to ObjectiveAI index (requires API key) |
+## Use Cases
 
-## Using with Claude Code
-
-This sandbox includes a skill for Claude Code. To have Claude invent a new Function:
-
-1. Open this workspace in Claude Code
-2. Ask Claude to invent a new function (the skill will guide the process)
-3. Claude will study examples, propose ideas, and implement the Function/Profile
-
-The skill supports both **collaborative** (back-and-forth) and **autonomous** modes.
+- **CI/CD Integration**: Automatically flag critical issues in pull requests
+- **Code Review Triage**: Prioritize review comments by severity
+- **Developer Tooling**: Build severity-aware code review dashboards
+- **Quality Metrics**: Track severity distribution of issues over time
